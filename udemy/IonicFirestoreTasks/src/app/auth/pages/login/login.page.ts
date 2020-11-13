@@ -1,5 +1,10 @@
 import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormControl, FormGroup, Validators } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
+import { NavController } from '@ionic/angular';
+import { AuthService } from 'src/app/core/services/auth.service';
+import { AuthProvider } from 'src/app/core/services/auth.types';
+import { OverlayService } from 'src/app/core/services/overlay.service';
 
 @Component({
   selector: 'app-login',
@@ -9,6 +14,7 @@ import { FormBuilder, FormControl, FormGroup, Validators } from '@angular/forms'
 export class LoginPage implements OnInit {
 
   authForm: FormGroup;
+  authProviders = AuthProvider;
   configs = {
     isSignIn: true,
     action: 'Login',
@@ -17,7 +23,12 @@ export class LoginPage implements OnInit {
 
   private nameControl = new FormControl('', [Validators.required, Validators.minLength(3)]);
 
-  constructor(private fb: FormBuilder) { }
+  constructor(
+    private authService: AuthService,
+    private fb: FormBuilder,
+    private navCtrl: NavController,
+    private route: ActivatedRoute,
+    private overlayService: OverlayService) { }
 
   ngOnInit() {
     this.createForm();
@@ -52,7 +63,24 @@ export class LoginPage implements OnInit {
       : this.authForm.removeControl('name');
   }
 
-  onSubmit():void {
-    console.log("AuthForm: ", this.authForm.value)
+  async onSubmit(provider: AuthProvider): Promise<void> {
+    const loading = await this.overlayService.loading();
+    try{
+      const credentials = await this.authService.authenticate({
+        isSignIn: this.configs.isSignIn,
+        user: this.authForm.value,
+        provider
+      });
+      this.navCtrl.navigateForward(this.route.snapshot.queryParamMap.get('redirect') || '/tasks');
+      console.log('Autenticação:', credentials);
+    } catch (e) {
+      console.log('Autenticação ERRO:', e);
+      await this.overlayService.toast({
+        message: e.message
+      });
+    } finally {
+      loading.dismiss();
+    }
   }
+
 }
